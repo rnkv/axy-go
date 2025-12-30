@@ -1,6 +1,6 @@
 package axy
 
-func Spawn(life Life) Reference {
+func Spawn(life Life) Life {
 	globalSystem.spawn(life, nil)
-	return life.base().Reference()
+	return life
 }

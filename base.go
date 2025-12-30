@@ -9,6 +9,7 @@ import (
 )
 
 type Base struct {
+	key                       string
 	system                    *System
 	parent                    *Base
 	life                      Life
@@ -34,9 +35,9 @@ func (b *Base) base() *Base {
 	return b
 }
 
-func (b *Base) name() string {
+func (b *Base) kind() string {
 	if b.life == nil {
-		return "UnknownActor"
+		return "Unknown"
 	}
 
 	t := reflect.TypeOf(b.life)
@@ -46,6 +47,18 @@ func (b *Base) name() string {
 	}
 
 	return t.Name()
+}
+
+func (b *Base) SetKey(key string) {
+	if b.key != "" {
+		panic("Key already set.")
+	}
+
+	b.key = key
+}
+
+func (b *Base) Key() string {
+	return b.key
 }
 
 func (b *Base) initializeExternalCtx() {
@@ -81,11 +94,19 @@ func (b *Base) initializeQueue() {
 }
 
 func (b *Base) OnSpawn() {
-	logger.Debug(fmt.Sprintf("%s spawning...", b.name()))
+	if b.key != "" {
+		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()), "key", b.Key)
+	} else {
+		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()))
+	}
 }
 
 func (b *Base) OnSpawned() {
-	logger.Debug(fmt.Sprintf("%s spawned.", b.name()))
+	if b.key != "" {
+		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()), "key", b.Key)
+	} else {
+		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()))
+	}
 }
 
 func (b *Base) live() {
@@ -126,9 +147,11 @@ func (b *Base) handle(object any) bool {
 		object.callable()
 		object.done <- true
 		return true
-	default:
-		b.life.OnMessage(object)
+	case Envelope:
+		b.life.OnMessage(object.sender, object.message)
 		return true
+	default:
+		return false
 	}
 }
 
@@ -164,8 +187,12 @@ func (b *Base) cleanUpQueue() {
 	}
 }
 
-func (b *Base) OnMessage(message any) {
-	logger.Debug(fmt.Sprintf("%s received message. [%v]", b.name(), message))
+func (b *Base) OnMessage(sender Life, message any) {
+	if b.key != "" {
+		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "key", b.Key, "message", message)
+	} else {
+		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "message", message)
+	}
 }
 
 func (b *Base) Do(callable func()) chan bool {
@@ -191,26 +218,69 @@ func (b *Base) Do(callable func()) chan bool {
 	}
 }
 
-func (b *Base) Reference() Reference {
-	b.initializeExternalCtx()
-	b.initializeQueue()
+func (b *Base) Send(recipient Life, message any) {
+	if message == nil {
+		return
+	}
 
-	return Reference{
-		ctx:    b.externalCtx,
-		cancel: b.externalCancel,
-		queue:  b.queue,
+	recipientBase := recipient.base()
+	recipientBase.initializeExternalCtx()
+	recipientBase.initializeQueue()
+
+	if recipientBase.externalCtx.Err() != nil {
+		return
+	}
+
+	select {
+	case <-recipientBase.externalCtx.Done():
+		return
+	case b.queue <- Envelope{sender: b.life, message: message}:
+		return
 	}
 }
+
+// func (b *Base) Send(message any) {
+// 	if message == nil {
+// 		return
+// 	}
+
+// 	b.initializeExternalCtx()
+// 	b.initializeQueue()
+
+// 	if b.externalCtx.Err() != nil {
+// 		return
+// 	}
+
+// 	select {
+// 	case <-b.externalCtx.Done():
+// 		return
+// 	case b.queue <- message:
+// 		return
+// 	}
+// }
+
+// func (b *Base) Reference() Reference {
+// 	b.initializeExternalCtx()
+// 	b.initializeQueue()
+
+// 	return Reference{
+// 		key:    b.key,
+// 		ctx:    b.externalCtx,
+// 		cancel: b.externalCancel,
+// 		queue:  b.queue,
+// 	}
+// }
 
 func (b *Base) Parent() Parent {
 	if b.parent == nil {
 		panic("Actor has no parent.")
 	}
 
-	b.initializeInternalCtx()
-	b.initializeQueue()
+	b.parent.initializeInternalCtx()
+	b.parent.initializeQueue()
 
 	return Parent{
+		child: b.life,
 		ctx:   b.parent.internalCtx,
 		queue: b.parent.queue,
 	}
@@ -226,11 +296,19 @@ func (b *Base) Cancel() {
 }
 
 func (b *Base) OnCancel() {
-	logger.Debug(fmt.Sprintf("%s canceling...", b.name()))
+	if b.key != "" {
+		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()), "key", b.Key)
+	} else {
+		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()))
+	}
 }
 
 func (b *Base) OnCanceled() {
-	logger.Debug(fmt.Sprintf("%s canceled.", b.name()))
+	if b.key != "" {
+		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()), "key", b.Key)
+	} else {
+		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()))
+	}
 }
 
 func (b *Base) Go(callable func()) {
@@ -251,14 +329,22 @@ func (b *Base) Go(callable func()) {
 }
 
 func (b *Base) OnDestroy() {
-	logger.Debug(fmt.Sprintf("%s destroying...", b.name()))
+	if b.key != "" {
+		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()), "key", b.Key)
+	} else {
+		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()))
+	}
 }
 
 func (b *Base) OnDestroyed() {
-	logger.Debug(fmt.Sprintf("%s destroyed.", b.name()))
+	if b.key != "" {
+		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()), "key", b.Key)
+	} else {
+		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()))
+	}
 }
 
-func (b *Base) Spawn(life Life) Reference {
+func (b *Base) Spawn(life Life) Life {
 	b.system.spawn(life, b)
-	return life.base().Reference()
+	return life
 }
