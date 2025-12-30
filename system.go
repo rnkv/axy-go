@@ -41,19 +41,14 @@ func (s *System) Wait() {
 	s.actorsCountMutex.Unlock()
 }
 
-func (s *System) Spawn(life Life) {
-	s.spawn(life, nil)
+func (s *System) Spawn(life Life) Reference {
+	return s.spawn(life, nil)
 }
 
-func (s *System) spawn(life Life, parent *Base) {
+func (s *System) spawn(life Life, parent *Base) Reference {
 	actor := life.base()
 
 	actor.spawnOnce.Do(func() {
-		// if actor.isSpawning || actor.isSpawned {
-		// 	return
-		// }
-
-		// actor.isSpawning = true
 		actor.system = s
 		actor.parent = parent
 		actor.life = life
@@ -69,4 +64,6 @@ func (s *System) spawn(life Life, parent *Base) {
 		actor.initializeInternalCtx()
 		go actor.live()
 	})
+
+	return actor.Reference()
 }

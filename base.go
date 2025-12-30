@@ -218,58 +218,34 @@ func (b *Base) Do(callable func()) chan bool {
 	}
 }
 
-func (b *Base) Send(recipient Life, message any) {
+func (b *Base) Send(recipient Reference, message any) {
 	if message == nil {
 		return
 	}
 
-	recipientBase := recipient.base()
-	recipientBase.initializeExternalCtx()
-	recipientBase.initializeQueue()
-
-	if recipientBase.externalCtx.Err() != nil {
+	if recipient.ctx.Err() != nil {
 		return
 	}
 
 	select {
-	case <-recipientBase.externalCtx.Done():
+	case <-recipient.ctx.Done():
 		return
 	case b.queue <- Envelope{sender: b.life, message: message}:
 		return
 	}
 }
 
-// func (b *Base) Send(message any) {
-// 	if message == nil {
-// 		return
-// 	}
+func (b *Base) Reference() Reference {
+	b.initializeExternalCtx()
+	b.initializeQueue()
 
-// 	b.initializeExternalCtx()
-// 	b.initializeQueue()
-
-// 	if b.externalCtx.Err() != nil {
-// 		return
-// 	}
-
-// 	select {
-// 	case <-b.externalCtx.Done():
-// 		return
-// 	case b.queue <- message:
-// 		return
-// 	}
-// }
-
-// func (b *Base) Reference() Reference {
-// 	b.initializeExternalCtx()
-// 	b.initializeQueue()
-
-// 	return Reference{
-// 		key:    b.key,
-// 		ctx:    b.externalCtx,
-// 		cancel: b.externalCancel,
-// 		queue:  b.queue,
-// 	}
-// }
+	return Reference{
+		key:    b.key,
+		ctx:    b.externalCtx,
+		cancel: b.externalCancel,
+		queue:  b.queue,
+	}
+}
 
 func (b *Base) Parent() Parent {
 	if b.parent == nil {
@@ -344,7 +320,6 @@ func (b *Base) OnDestroyed() {
 	}
 }
 
-func (b *Base) Spawn(life Life) Life {
-	b.system.spawn(life, b)
-	return life
+func (b *Base) Spawn(life Life) Reference {
+	return b.system.spawn(life, b)
 }
