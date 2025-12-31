@@ -3,6 +3,7 @@ package axy
 type Life interface {
 	base() *Base
 	Key() string
+	Send(message any, sender Reference)
 	Cancel()
 	OnSpawn()
 	OnSpawned()
