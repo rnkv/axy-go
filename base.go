@@ -218,23 +218,23 @@ func (b *Base) Do(callable func()) chan bool {
 	}
 }
 
-func (b *Base) Send(message any, sender Reference) {
+func (b *Base) Send(message any, sender Reference) bool {
 	if message == nil {
-		return
+		return false
 	}
 
 	b.initializeExternalCtx()
 	b.initializeQueue()
 
 	if b.externalCtx.Err() != nil {
-		return
+		return false
 	}
 
 	select {
 	case <-b.externalCtx.Done():
-		return
+		return false
 	case b.queue <- Envelope{sender: sender, message: message}:
-		return
+		return true
 	}
 }
 
