@@ -41,11 +41,11 @@ func (s *System) Wait() {
 	s.actorsCountMutex.Unlock()
 }
 
-func (s *System) Spawn(life Life) Life {
+func (s *System) Spawn(life Life) Reference {
 	return s.spawn(life, nil)
 }
 
-func (s *System) spawn(life Life, parent *Base) Life {
+func (s *System) spawn(life Life, parent *Base) Reference {
 	actor := life.base()
 
 	actor.spawnOnce.Do(func() {

@@ -1,5 +1,5 @@
 package axy
 
-func Spawn(life Life) Life {
+func Spawn(life Life) Reference {
 	return globalSystem.spawn(life, nil)
 }

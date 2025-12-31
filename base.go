@@ -324,6 +324,6 @@ func (b *Base) OnDestroyed() {
 	}
 }
 
-func (b *Base) Spawn(life Life) Life {
+func (b *Base) Spawn(life Life) Reference {
 	return b.system.spawn(life, b)
 }

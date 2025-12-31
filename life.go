@@ -3,6 +3,7 @@ package axy
 type Life interface {
 	base() *Base
 	Key() string
+	Cancel()
 	OnSpawn()
 	OnSpawned()
 	// Do(function func()) chan bool
