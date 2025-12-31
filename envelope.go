@@ -1,6 +1,6 @@
 package axy
 
 type Envelope struct {
-	sender  Life
+	sender  Reference
 	message any
 }

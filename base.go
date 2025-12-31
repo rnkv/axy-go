@@ -148,7 +148,7 @@ func (b *Base) handle(object any) bool {
 		object.done <- true
 		return true
 	case Envelope:
-		b.life.OnMessage(object.sender, object.message)
+		b.life.OnMessage(object.message, object.sender)
 		return true
 	default:
 		return false
@@ -187,7 +187,7 @@ func (b *Base) cleanUpQueue() {
 	}
 }
 
-func (b *Base) OnMessage(sender Life, message any) {
+func (b *Base) OnMessage(message any, sender Reference) {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "key", b.Key, "message", message)
 	} else {
@@ -218,23 +218,22 @@ func (b *Base) Do(callable func()) chan bool {
 	}
 }
 
-func (b *Base) Send(recipient Life, message any) {
+func (b *Base) Send(message any, sender Reference) {
 	if message == nil {
 		return
 	}
 
-	recipientBase := recipient.base()
-	recipientBase.initializeExternalCtx()
-	recipientBase.initializeQueue()
+	b.initializeExternalCtx()
+	b.initializeQueue()
 
-	if recipientBase.externalCtx.Err() != nil {
+	if b.externalCtx.Err() != nil {
 		return
 	}
 
 	select {
-	case <-recipientBase.externalCtx.Done():
+	case <-b.externalCtx.Done():
 		return
-	case b.queue <- Envelope{sender: b.life, message: message}:
+	case b.queue <- Envelope{sender: sender, message: message}:
 		return
 	}
 }

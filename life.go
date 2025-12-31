@@ -7,7 +7,7 @@ type Life interface {
 	OnSpawn()
 	OnSpawned()
 	// Do(function func()) chan bool
-	OnMessage(sender Life, message any)
+	OnMessage(message any, sender Reference)
 	OnCancel()
 	OnCanceled()
 	OnDestroy()
