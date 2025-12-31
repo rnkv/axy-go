@@ -95,7 +95,7 @@ func (b *Base) initializeQueue() {
 
 func (b *Base) OnSpawn() {
 	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()), "key", b.Key)
+		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()), "key", b.key)
 	} else {
 		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()))
 	}
@@ -103,7 +103,7 @@ func (b *Base) OnSpawn() {
 
 func (b *Base) OnSpawned() {
 	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()), "key", b.Key)
+		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()), "key", b.key)
 	} else {
 		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()))
 	}
@@ -189,7 +189,7 @@ func (b *Base) cleanUpQueue() {
 
 func (b *Base) OnMessage(message any, sender Reference) {
 	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "key", b.Key, "message", message)
+		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "key", b.key, "message", message)
 	} else {
 		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "message", message)
 	}
@@ -276,7 +276,7 @@ func (b *Base) Cancel() {
 
 func (b *Base) OnCancel() {
 	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()), "key", b.Key)
+		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()), "key", b.key)
 	} else {
 		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()))
 	}
@@ -284,7 +284,7 @@ func (b *Base) OnCancel() {
 
 func (b *Base) OnCanceled() {
 	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()), "key", b.Key)
+		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()), "key", b.key)
 	} else {
 		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()))
 	}
@@ -309,7 +309,7 @@ func (b *Base) Go(callable func()) {
 
 func (b *Base) OnDestroy() {
 	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()), "key", b.Key)
+		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()), "key", b.key)
 	} else {
 		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()))
 	}
@@ -317,7 +317,7 @@ func (b *Base) OnDestroy() {
 
 func (b *Base) OnDestroyed() {
 	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()), "key", b.Key)
+		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()), "key", b.key)
 	} else {
 		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()))
 	}
