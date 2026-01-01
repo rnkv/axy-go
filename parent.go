@@ -3,7 +3,7 @@ package axy
 import "context"
 
 type Parent struct {
-	child Life
+	child Actor
 	ctx   context.Context
 	queue chan<- any
 }

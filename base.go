@@ -12,7 +12,7 @@ type Base struct {
 	key                       string
 	system                    *System
 	parent                    *Base
-	life                      Life
+	actor                     Actor
 	spawnOnce                 sync.Once
 	queue                     chan any
 	initializeQueueOnce       sync.Once
@@ -36,11 +36,11 @@ func (b *Base) base() *Base {
 }
 
 func (b *Base) kind() string {
-	if b.life == nil {
+	if b.actor == nil {
 		return "Unknown"
 	}
 
-	t := reflect.TypeOf(b.life)
+	t := reflect.TypeOf(b.actor)
 
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -110,12 +110,12 @@ func (b *Base) OnSpawned() {
 }
 
 func (b *Base) live() {
-	b.life.OnSpawn()
-	b.life.OnSpawned()
+	b.actor.OnSpawn()
+	b.actor.OnSpawned()
 	b.loop()
 	b.cleanUpQueue()
-	b.life.OnDestroy()
-	b.life.OnDestroyed()
+	b.actor.OnDestroy()
+	b.actor.OnDestroyed()
 
 	if b.parent != nil {
 		b.parent.childrenWG.Done()
@@ -125,8 +125,8 @@ func (b *Base) live() {
 }
 
 func (b *Base) cancel() {
-	b.life.OnCancel()
-	b.life.OnCanceled()
+	b.actor.OnCancel()
+	b.actor.OnCanceled()
 	b.childrenWGMutex.Lock()
 	b.isChildrenWGLocked = true
 	b.childrenWGMutex.Unlock()
@@ -148,7 +148,7 @@ func (b *Base) handle(object any) bool {
 		object.done <- true
 		return true
 	case Envelope:
-		b.life.OnMessage(object.message, object.sender)
+		b.actor.OnMessage(object.message, object.sender)
 		return true
 	default:
 		return false
@@ -259,7 +259,7 @@ func (b *Base) Parent() Parent {
 	b.parent.initializeQueue()
 
 	return Parent{
-		child: b.life,
+		child: b.actor,
 		ctx:   b.parent.internalCtx,
 		queue: b.parent.queue,
 	}
@@ -323,6 +323,6 @@ func (b *Base) OnDestroyed() {
 	}
 }
 
-func (b *Base) Spawn(life Life) Reference {
-	return b.system.spawn(life, b)
+func (b *Base) Spawn(actor Actor) Reference {
+	return b.system.spawn(actor, b)
 }

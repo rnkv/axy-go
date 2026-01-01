@@ -1,6 +1,6 @@
 package axy
 
-type Life interface {
+type Actor interface {
 	base() *Base
 	Key() string
 	Send(message any, sender Reference) bool

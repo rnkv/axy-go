@@ -41,29 +41,29 @@ func (s *System) Wait() {
 	s.actorsCountMutex.Unlock()
 }
 
-func (s *System) Spawn(life Life) Reference {
-	return s.spawn(life, nil)
+func (s *System) Spawn(actor Actor) Reference {
+	return s.spawn(actor, nil)
 }
 
-func (s *System) spawn(life Life, parent *Base) Reference {
-	actor := life.base()
+func (s *System) spawn(actor Actor, parent *Base) Reference {
+	base := actor.base()
 
-	actor.spawnOnce.Do(func() {
-		actor.system = s
-		actor.parent = parent
-		actor.life = life
+	base.spawnOnce.Do(func() {
+		base.system = s
+		base.parent = parent
+		base.actor = actor
 		s.addActor()
 
-		if actor.parent != nil {
-			actor.parent.childrenWG.Add(1)
+		if base.parent != nil {
+			base.parent.childrenWG.Add(1)
 		}
 
-		actor.initializeQueue()
-		actor.initializeExternalCtx()
-		actor.initializeChildrenCtx()
-		actor.initializeInternalCtx()
-		go actor.live()
+		base.initializeQueue()
+		base.initializeExternalCtx()
+		base.initializeChildrenCtx()
+		base.initializeInternalCtx()
+		go base.live()
 	})
 
-	return life
+	return actor
 }
