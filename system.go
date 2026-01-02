@@ -75,5 +75,5 @@ func (s *System) spawn(actor Actor, parent *Base) Reference {
 		go base.live()
 	})
 
-	return actor.Reference()
+	return actor
 }

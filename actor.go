@@ -12,16 +12,16 @@ type Actor interface {
 	// Key returns the actor's stable identifier (if set).
 	Key() string
 
-	// Reference returns a handle to this actor.
-	//
-	// Returns a [Reference] handle that can be used to send messages to the actor.
-	Reference() Reference
-
 	// Send enqueues a message to this actor.
 	//
 	// The sender is used for tracing/diagnostics and can be used by the receiver
 	// to reply. Returns false if message is nil or the actor is already canceled.
-	// Send(message any, sender Reference) bool
+	Send(message any, sender Reference) bool
+
+	// // Perception returns a wrapper around this actor that uses the given perceiver
+	// // as the "sender identity" for outgoing messages and exposes perceiver helpers
+	// // (Ctx/Do/Go).
+	// Perception(perceiver Actor) Perception
 
 	// Cancel requests actor shutdown.
 	Cancel()
