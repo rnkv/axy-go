@@ -173,7 +173,7 @@ func (b *Base) handle(object any) bool {
 		b.actor.OnMessage(object.message, object.sender)
 		return true
 	default:
-		return false
+		return true
 	}
 }
 
