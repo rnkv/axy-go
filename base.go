@@ -173,7 +173,7 @@ func (b *Base) handle(object any) bool {
 		b.actor.OnMessage(object.message, object.sender)
 		return true
 	default:
-		return false
+		return true
 	}
 }
 
@@ -248,48 +248,40 @@ func (b *Base) Do(callable func()) chan bool {
 //
 // The sender is used for tracing/diagnostics and can be used by the receiver
 // to reply. Returns false if message is nil or the actor is already canceled.
-func (b *Base) Send(message any, sender Reference) bool {
-	if message == nil {
-		return false
-	}
-
-	b.initializeExternalCtx()
-	b.initializeQueue()
-
-	if b.externalCtx.Err() != nil {
-		return false
-	}
-
-	select {
-	case <-b.externalCtx.Done():
-		return false
-	case b.queue <- newEnvelope(sender, message):
-		return true
-	}
-}
-
-// // Perception creates a perceiver-scoped view of this actor.
-// //
-// // The resulting [Perception] uses b as the message target and perceiver as the
-// // sender identity for outgoing messages.
-// func (b *Base) Perception(perceiver Actor) Perception {
-// 	return Perception{
-// 		reference: b,
-// 		perceiver: perceiver,
+// func (b *Base) Send(message any, sender Reference) bool {
+// 	if message == nil {
+// 		return false
 // 	}
-// }
 
-// func (b *Base) Reference() Reference {
 // 	b.initializeExternalCtx()
 // 	b.initializeQueue()
 
-// 	return Reference{
-// 		key:    b.key,
-// 		ctx:    b.externalCtx,
-// 		cancel: b.externalCancel,
-// 		queue:  b.queue,
+// 	if b.externalCtx.Err() != nil {
+// 		return false
+// 	}
+
+// 	select {
+// 	case <-b.externalCtx.Done():
+// 		return false
+// 	case b.queue <- newEnvelope(sender, message):
+// 		return true
 // 	}
 // }
+
+// Reference returns a handle to this actor.
+//
+// Returns a [Reference] handle that can be used to send messages to the actor.
+func (b *Base) Reference() Reference {
+	b.initializeExternalCtx()
+	b.initializeQueue()
+
+	return Reference{
+		key:    b.key,
+		ctx:    b.externalCtx,
+		cancel: b.externalCancel,
+		queue:  b.queue,
+	}
+}
 
 // Parent returns a handle for the parent actor to send messages to this actor.
 //
@@ -304,7 +296,7 @@ func (b *Base) Parent() Parent {
 	b.parent.initializeQueue()
 
 	return Parent{
-		child: b.actor,
+		child: b.actor.Reference(),
 		ctx:   b.parent.internalCtx,
 		queue: b.parent.queue,
 	}

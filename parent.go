@@ -7,7 +7,7 @@ import "context"
 // It is produced by [Base.Parent]. Messages are sent with the child actor as
 // the sender.
 type Parent struct {
-	child Actor
+	child Reference
 	ctx   context.Context
 	queue chan<- any
 }

@@ -1,19 +1,35 @@
 package axy
 
-// Reference is a handle to an actor.
-//
-// References are safe to share between goroutines and are the primary public way
-// to interact with actors after spawning them.
-type Reference interface {
-	// Key returns the actor key (if any).
-	Key() string
+import "context"
 
-	// Send enqueues a message to the referenced actor.
-	Send(message any, sender Reference) bool
+type Reference struct {
+	key    string
+	ctx    context.Context
+	cancel context.CancelFunc
+	queue  chan<- any
+}
 
-	// // Perception returns a wrapper that sends messages "as" the given perceiver.
-	// Perception(perceiver Actor) Perception
+func (r Reference) Key() string {
+	return r.key
+}
 
-	// Cancel requests shutdown of the referenced actor.
-	Cancel()
+func (r Reference) Send(message any, sender Reference) bool {
+	if message == nil {
+		return false
+	}
+
+	if r.ctx.Err() != nil {
+		return false
+	}
+
+	select {
+	case <-r.ctx.Done():
+		return false
+	case r.queue <- newEnvelope(sender, message):
+		return true
+	}
+}
+
+func (r Reference) Cancel() {
+	r.cancel()
 }
