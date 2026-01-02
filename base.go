@@ -165,11 +165,11 @@ func (b *Base) handle(object any) bool {
 	switch object := object.(type) {
 	case nil:
 		return false
-	case Task:
+	case task:
 		object.callable()
 		object.done <- true
 		return true
-	case Envelope:
+	case envelope:
 		b.actor.OnMessage(object.message, object.sender)
 		return true
 	default:
@@ -228,10 +228,7 @@ func (b *Base) Do(callable func()) chan bool {
 	b.initializeInternalCtx()
 	b.initializeQueue()
 
-	task := Task{
-		callable: callable,
-		done:     make(chan bool, 1),
-	}
+	task := newTask(callable)
 
 	if b.internalCtx.Err() != nil {
 		task.done <- false
@@ -266,7 +263,7 @@ func (b *Base) Send(message any, sender Reference) bool {
 	select {
 	case <-b.externalCtx.Done():
 		return false
-	case b.queue <- Envelope{sender: sender, message: message}:
+	case b.queue <- newEnvelope(sender, message):
 		return true
 	}
 }

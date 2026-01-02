@@ -27,7 +27,7 @@ func (p Parent) Send(message any) bool {
 	select {
 	case <-p.ctx.Done():
 		return false
-	case p.queue <- Envelope{sender: p.child, message: message}:
+	case p.queue <- envelope{sender: p.child, message: message}:
 		return true
 	}
 }
