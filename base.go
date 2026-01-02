@@ -271,16 +271,16 @@ func (b *Base) Send(message any, sender Reference) bool {
 	}
 }
 
-// Perception creates a perceiver-scoped view of this actor.
-//
-// The resulting [Perception] uses b as the message target and perceiver as the
-// sender identity for outgoing messages.
-func (b *Base) Perception(perceiver Actor) Perception {
-	return Perception{
-		reference: b,
-		perceiver: perceiver,
-	}
-}
+// // Perception creates a perceiver-scoped view of this actor.
+// //
+// // The resulting [Perception] uses b as the message target and perceiver as the
+// // sender identity for outgoing messages.
+// func (b *Base) Perception(perceiver Actor) Perception {
+// 	return Perception{
+// 		reference: b,
+// 		perceiver: perceiver,
+// 	}
+// }
 
 // func (b *Base) Reference() Reference {
 // 	b.initializeExternalCtx()

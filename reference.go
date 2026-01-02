@@ -11,8 +11,8 @@ type Reference interface {
 	// Send enqueues a message to the referenced actor.
 	Send(message any, sender Reference) bool
 
-	// Perception returns a wrapper that sends messages "as" the given perceiver.
-	Perception(perceiver Actor) Perception
+	// // Perception returns a wrapper that sends messages "as" the given perceiver.
+	// Perception(perceiver Actor) Perception
 
 	// Cancel requests shutdown of the referenced actor.
 	Cancel()
