@@ -238,6 +238,13 @@ func (b *Base) Send(message any, sender Reference) bool {
 	}
 }
 
+func (b *Base) Perception(perceiver Actor) Perception {
+	return Perception{
+		reference: b,
+		perceiver: perceiver,
+	}
+}
+
 // func (b *Base) Reference() Reference {
 // 	b.initializeExternalCtx()
 // 	b.initializeQueue()

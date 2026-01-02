@@ -4,6 +4,7 @@ type Actor interface {
 	base() *Base
 	Key() string
 	Send(message any, sender Reference) bool
+	Perception(perceiver Actor) Perception
 	Cancel()
 	OnSpawn()
 	OnSpawned()
