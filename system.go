@@ -2,12 +2,17 @@ package axy
 
 import "sync"
 
+// System owns a set of actors and can be used to wait until they all exit.
+//
+// If you don't need explicit scoping, you can use the package-level [Spawn] and
+// [Wait] which use a global system instance.
 type System struct {
 	actorsCount      int
 	actorsCountMutex sync.Mutex
 	actorsCountCond  *sync.Cond
 }
 
+// NewSystem creates an isolated actor system.
 func NewSystem() *System {
 	s := &System{}
 	s.actorsCountCond = sync.NewCond(&s.actorsCountMutex)
@@ -41,6 +46,11 @@ func (s *System) Wait() {
 	s.actorsCountMutex.Unlock()
 }
 
+// Spawn starts a new actor in this system and returns its [Reference].
+//
+// Spawn is idempotent per actor instance: if you call it multiple times for the
+// same actor object, only the first call starts it and subsequent calls return
+// the same reference.
 func (s *System) Spawn(actor Actor) Reference {
 	return s.spawn(actor, nil)
 }

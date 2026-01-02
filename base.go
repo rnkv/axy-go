@@ -8,6 +8,14 @@ import (
 	"sync/atomic"
 )
 
+// Base is the embeddable implementation of the axy actor runtime.
+//
+// Embed Base into your actor struct to get default implementations of:
+//   - message delivery via Send/OnMessage
+//   - cancellation via Cancel/OnCancel/OnDestroy
+//   - actor-scoped helpers (Ctx/Do/Go/Spawn)
+//
+// The runtime initializes Base when the actor is spawned.
 type Base struct {
 	key                       string
 	system                    *System
@@ -31,6 +39,10 @@ type Base struct {
 	isCancelRequested         atomic.Bool
 }
 
+// base returns the embedded Base.
+//
+// It exists to let the runtime access internal state even when Base is embedded
+// anonymously into user-defined actor structs.
 func (b *Base) base() *Base {
 	return b
 }
@@ -49,6 +61,10 @@ func (b *Base) kind() string {
 	return t.Name()
 }
 
+// SetKey sets a stable identifier for the actor.
+//
+// SetKey must be called before spawning (typically in your constructor).
+// Calling SetKey more than once panics.
 func (b *Base) SetKey(key string) {
 	if b.key != "" {
 		panic("Key already set.")
@@ -57,6 +73,10 @@ func (b *Base) SetKey(key string) {
 	b.key = key
 }
 
+// Key returns the actor key previously set via SetKey.
+//
+// The key is optional but recommended for logging/tracing. Keys must be set at
+// most once; calling SetKey twice panics.
 func (b *Base) Key() string {
 	return b.key
 }
@@ -93,6 +113,7 @@ func (b *Base) initializeQueue() {
 	})
 }
 
+// OnSpawn is a lifecycle hook called at the beginning of the actor goroutine, before the loop starts.
 func (b *Base) OnSpawn() {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()), "key", b.key)
@@ -101,6 +122,7 @@ func (b *Base) OnSpawn() {
 	}
 }
 
+// OnSpawned is a lifecycle hook called after OnSpawn, still on the actor goroutine.
 func (b *Base) OnSpawned() {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()), "key", b.key)
@@ -187,6 +209,7 @@ func (b *Base) cleanUpQueue() {
 	}
 }
 
+// OnMessage is a lifecycle hook called for every delivered message, on the actor goroutine.
 func (b *Base) OnMessage(message any, sender Reference) {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "key", b.key, "message", message)
@@ -195,6 +218,12 @@ func (b *Base) OnMessage(message any, sender Reference) {
 	}
 }
 
+// Do schedules callable to be executed on the actor goroutine.
+//
+// This is useful for serialized access to actor state without sending a typed
+// message. The returned channel receives:
+//   - true if the task was executed
+//   - false if the actor is already shutting down and the task could not run
 func (b *Base) Do(callable func()) chan bool {
 	b.initializeInternalCtx()
 	b.initializeQueue()
@@ -218,6 +247,10 @@ func (b *Base) Do(callable func()) chan bool {
 	}
 }
 
+// Send enqueues a message to this actor.
+//
+// The sender is used for tracing/diagnostics and can be used by the receiver
+// to reply. Returns false if message is nil or the actor is already canceled.
 func (b *Base) Send(message any, sender Reference) bool {
 	if message == nil {
 		return false
@@ -238,6 +271,10 @@ func (b *Base) Send(message any, sender Reference) bool {
 	}
 }
 
+// Perception creates a perceiver-scoped view of this actor.
+//
+// The resulting [Perception] uses b as the message target and perceiver as the
+// sender identity for outgoing messages.
 func (b *Base) Perception(perceiver Actor) Perception {
 	return Perception{
 		reference: b,
@@ -257,6 +294,10 @@ func (b *Base) Perception(perceiver Actor) Perception {
 // 	}
 // }
 
+// Parent returns a handle for the parent actor to send messages to this actor.
+//
+// Returns a [Parent] handle that can be used to send messages to the parent actor.
+// Panics if the actor has no parent.
 func (b *Base) Parent() Parent {
 	if b.parent == nil {
 		panic("Actor has no parent.")
@@ -272,15 +313,22 @@ func (b *Base) Parent() Parent {
 	}
 }
 
+// Ctx returns a context that is canceled when the actor is shutting down.
+//
+// Use this context to stop background goroutines started via Go.
 func (b *Base) Ctx() context.Context {
 	b.initializeChildrenCtx()
 	return b.childrenCtx
 }
 
+// Cancel requests actor shutdown.
+//
+// It is safe to call multiple times.
 func (b *Base) Cancel() {
 	b.externalCancel()
 }
 
+// OnCancel is a lifecycle hook called when cancellation is requested.
 func (b *Base) OnCancel() {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()), "key", b.key)
@@ -289,6 +337,7 @@ func (b *Base) OnCancel() {
 	}
 }
 
+// OnCanceled is a lifecycle hook called after OnCancel.
 func (b *Base) OnCanceled() {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()), "key", b.key)
@@ -297,6 +346,11 @@ func (b *Base) OnCanceled() {
 	}
 }
 
+// Go runs callable in a new goroutine that is tracked by the actor.
+//
+// Tracked goroutines are awaited during shutdown, which lets OnCancel trigger
+// graceful cleanup work. If shutdown has progressed to the point where new work
+// should not start, Go becomes a no-op.
 func (b *Base) Go(callable func()) {
 	b.childrenWGMutex.Lock()
 
@@ -314,6 +368,7 @@ func (b *Base) Go(callable func()) {
 	}()
 }
 
+// OnDestroy is a lifecycle hook called when the actor is about to exit.
 func (b *Base) OnDestroy() {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()), "key", b.key)
@@ -322,6 +377,7 @@ func (b *Base) OnDestroy() {
 	}
 }
 
+// OnDestroyed is a lifecycle hook called after OnDestroy.
 func (b *Base) OnDestroyed() {
 	if b.key != "" {
 		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()), "key", b.key)
@@ -330,6 +386,9 @@ func (b *Base) OnDestroyed() {
 	}
 }
 
+// Spawn starts a child actor in the same system and returns its [Reference].
+//
+// The returned actor is automatically canceled if the parent actor is canceled.
 func (b *Base) Spawn(actor Actor) Reference {
 	return b.system.spawn(actor, b)
 }
