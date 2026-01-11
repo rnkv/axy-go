@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"sync/atomic"
 )
+
+type childActorDestroyed struct {
+	childActor Actor
+}
 
 // Base is the embeddable implementation of the axy actor runtime.
 //
@@ -18,10 +21,11 @@ import (
 // The runtime initializes Base when the actor is spawned.
 type Base struct {
 	key                       string
-	system                    *System
 	parent                    *Base
 	actor                     Actor
+	goid                      uint64
 	spawnOnce                 sync.Once
+	onLive                    chan struct{}
 	queue                     chan any
 	initializeQueueOnce       sync.Once
 	externalCtx               context.Context
@@ -30,13 +34,21 @@ type Base struct {
 	childrenCtx               context.Context
 	childrenCancel            context.CancelFunc
 	initializeChildrenCtxOnce sync.Once
-	childrenWG                sync.WaitGroup
-	childrenWGMutex           sync.Mutex
-	isChildrenWGLocked        bool
+	childActors               map[Actor]struct{}
+	onChildActorsEmpty        chan struct{}
+
+	childGorutinesWG         sync.WaitGroup
+	childGorutinesWGMutex    sync.Mutex
+	isChildGorutinesWGLocked bool
+	// childrenWG                sync.WaitGroup
+	// childrenWGMutex           sync.Mutex
+	// isChildrenWGLocked        bool
+
 	internalCtx               context.Context
 	internalCancel            context.CancelFunc
 	initializeInternalCtxOnce sync.Once
-	isCancelRequested         atomic.Bool
+	isCanceled                bool
+	onDone                    chan struct{}
 }
 
 // base returns the embedded Base.
@@ -132,6 +144,8 @@ func (b *Base) OnSpawned() {
 }
 
 func (b *Base) live() {
+	b.goid = goid()
+	close(b.onLive)
 	b.actor.OnSpawn()
 	b.actor.OnSpawned()
 	b.loop()
@@ -140,22 +154,25 @@ func (b *Base) live() {
 	b.actor.OnDestroyed()
 
 	if b.parent != nil {
-		b.parent.childrenWG.Done()
+		b.parent.queue <- childActorDestroyed{childActor: b.actor}
+		// b.parent.childrenWG.Done()
 	}
 
-	b.system.removeActor()
+	close(b.onDone)
 }
 
 func (b *Base) cancel() {
+	b.isCanceled = true
 	b.actor.OnCancel()
 	b.actor.OnCanceled()
-	b.childrenWGMutex.Lock()
-	b.isChildrenWGLocked = true
-	b.childrenWGMutex.Unlock()
+	b.childGorutinesWGMutex.Lock()
+	b.isChildGorutinesWGLocked = true
+	b.childGorutinesWGMutex.Unlock()
 	b.childrenCancel()
 
 	go func() {
-		b.childrenWG.Wait()
+		<-b.onChildActorsEmpty
+		b.childGorutinesWG.Wait()
 		b.internalCancel()
 		b.queue <- nil
 	}()
@@ -171,6 +188,18 @@ func (b *Base) handle(object any) bool {
 		return true
 	case envelope:
 		b.actor.OnMessage(object.message, object.sender)
+		return true
+	case childActorDestroyed:
+		delete(b.childActors, object.childActor)
+
+		if len(b.childActors) == 0 {
+			close(b.onChildActorsEmpty)
+
+			if b.parent == nil {
+				b.externalCancel()
+			}
+		}
+
 		return true
 	default:
 		return true
@@ -225,6 +254,7 @@ func (b *Base) OnMessage(message any, sender Reference) {
 //   - true if the task was executed
 //   - false if the actor is already shutting down and the task could not run
 func (b *Base) Do(callable func()) chan bool {
+	b.AssertOutside()
 	b.initializeInternalCtx()
 	b.initializeQueue()
 
@@ -268,34 +298,17 @@ func (b *Base) Send(message any, sender Reference) bool {
 	}
 }
 
-// // Perception creates a perceiver-scoped view of this actor.
-// //
-// // The resulting [Perception] uses b as the message target and perceiver as the
-// // sender identity for outgoing messages.
-// func (b *Base) Perception(perceiver Actor) Perception {
-// 	return Perception{
-// 		reference: b,
-// 		perceiver: perceiver,
-// 	}
-// }
+func (b *Base) Reference() Reference {
+	return Reference(b.actor)
+}
 
-// func (b *Base) Reference() Reference {
-// 	b.initializeExternalCtx()
-// 	b.initializeQueue()
-
-// 	return Reference{
-// 		key:    b.key,
-// 		ctx:    b.externalCtx,
-// 		cancel: b.externalCancel,
-// 		queue:  b.queue,
-// 	}
-// }
-
-// Parent returns a handle for the parent actor to send messages to this actor.
+// Parent returns a handle to send messages to the parent actor.
 //
 // Returns a [Parent] handle that can be used to send messages to the parent actor.
 // Panics if the actor has no parent.
 func (b *Base) Parent() Parent {
+	b.AssertInside()
+
 	if b.parent == nil {
 		panic("Actor has no parent.")
 	}
@@ -322,6 +335,7 @@ func (b *Base) Ctx() context.Context {
 //
 // It is safe to call multiple times.
 func (b *Base) Cancel() {
+	b.initializeExternalCtx()
 	b.externalCancel()
 }
 
@@ -349,18 +363,18 @@ func (b *Base) OnCanceled() {
 // graceful cleanup work. If shutdown has progressed to the point where new work
 // should not start, Go becomes a no-op.
 func (b *Base) Go(callable func()) {
-	b.childrenWGMutex.Lock()
+	b.childGorutinesWGMutex.Lock()
 
-	if b.isChildrenWGLocked {
-		b.childrenWGMutex.Unlock()
+	if b.isChildGorutinesWGLocked {
+		b.childGorutinesWGMutex.Unlock()
 		return
 	}
 
-	b.childrenWG.Add(1)
-	b.childrenWGMutex.Unlock()
+	b.childGorutinesWG.Add(1)
+	b.childGorutinesWGMutex.Unlock()
 
 	go func() {
-		defer b.childrenWG.Done()
+		defer b.childGorutinesWG.Done()
 		callable()
 	}()
 }
@@ -385,7 +399,22 @@ func (b *Base) OnDestroyed() {
 
 // Spawn starts a child actor in the same system and returns its [Reference].
 //
+// This method should be called from the actor goroutine only.
 // The returned actor is automatically canceled if the parent actor is canceled.
 func (b *Base) Spawn(actor Actor) Reference {
-	return b.system.spawn(actor, b)
+	if b.actor == nil {
+		panic("Actor is not spawned, cannot spawn child actor.")
+	}
+
+	b.AssertInside()
+
+	if b.isCanceled {
+		if b.key != "" {
+			panic(fmt.Sprintf("%s (%s) is canceled, cannot spawn child actor.", b.kind(), b.key))
+		} else {
+			panic(fmt.Sprintf("%s is canceled, cannot spawn child actor.", b.kind()))
+		}
+	}
+
+	return spawn(actor, b)
 }

@@ -1,79 +1,63 @@
 package axy
 
-import "sync"
-
 // System owns a set of actors and can be used to wait until they all exit.
 //
 // If you don't need explicit scoping, you can use the package-level [Spawn] and
 // [Wait] which use a global system instance.
-type System struct {
-	actorsCount      int
-	actorsCountMutex sync.Mutex
-	actorsCountCond  *sync.Cond
+type system struct {
+	Base
+}
+
+func newSystem() *system {
+	return &system{}
+}
+
+type System interface {
+	base() *Base
+	Spawn(actor Actor) Reference
+	Wait()
+	Done() <-chan struct{}
 }
 
 // NewSystem creates an isolated actor system.
-func NewSystem() *System {
-	s := &System{}
-	s.actorsCountCond = sync.NewCond(&s.actorsCountMutex)
-	return s
+func NewSystem() System {
+	return newSystem()
 }
 
-var globalSystem = NewSystem()
+var globalSystem = newSystem()
 
-func (s *System) addActor() {
-	s.actorsCountMutex.Lock()
-	s.actorsCount++
-	s.actorsCountMutex.Unlock()
-}
+func (s *system) OnSpawn()                                {}
+func (s *system) OnSpawned()                              {}
+func (s *system) OnMessage(message any, sender Reference) {}
+func (s *system) OnCancel()                               {}
+func (s *system) OnCanceled()                             {}
+func (s *system) OnDestroy()                              {}
+func (s *system) OnDestroyed()                            {}
 
-func (s *System) removeActor() {
-	s.actorsCountMutex.Lock()
-	s.actorsCount--
+// Spawn spawns a new actor in the system and returns a reference to it.
+func (s *system) Spawn(actor Actor) Reference {
+	spawn(s, nil)
+	<-s.onLive
 
-	if s.actorsCount == 0 {
-		s.actorsCountCond.Broadcast()
-	}
+	onReference := make(chan Reference, 1)
 
-	s.actorsCountMutex.Unlock()
-}
-
-func (s *System) Wait() {
-	s.actorsCountMutex.Lock()
-	for s.actorsCount > 0 {
-		s.actorsCountCond.Wait()
-	}
-	s.actorsCountMutex.Unlock()
-}
-
-// Spawn starts a new actor in this system and returns its [Reference].
-//
-// Spawn is idempotent per actor instance: if you call it multiple times for the
-// same actor object, only the first call starts it and subsequent calls return
-// the same reference.
-func (s *System) Spawn(actor Actor) Reference {
-	return s.spawn(actor, nil)
-}
-
-func (s *System) spawn(actor Actor, parent *Base) Reference {
-	base := actor.base()
-
-	base.spawnOnce.Do(func() {
-		base.system = s
-		base.parent = parent
-		base.actor = actor
-		s.addActor()
-
-		if base.parent != nil {
-			base.parent.childrenWG.Add(1)
-		}
-
-		base.initializeQueue()
-		base.initializeExternalCtx()
-		base.initializeChildrenCtx()
-		base.initializeInternalCtx()
-		go base.live()
+	<-s.Do(func() {
+		onReference <- s.base().Spawn(actor)
 	})
 
-	return actor
+	reference := <-onReference
+	<-actor.base().onLive
+	return reference
+}
+
+// Wait blocks until all actors spawned in this system have destroyed.
+func (s *system) Wait() {
+	spawn(s, nil)
+	<-s.onDone
+}
+
+// Done returns a channel that is closed when all actors spawned in this system have destroyed.
+func (s *system) Done() <-chan struct{} {
+	spawn(s, nil)
+	return s.onDone
 }

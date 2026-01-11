@@ -18,10 +18,8 @@ type Actor interface {
 	// to reply. Returns false if message is nil or the actor is already canceled.
 	Send(message any, sender Reference) bool
 
-	// // Perception returns a wrapper around this actor that uses the given perceiver
-	// // as the "sender identity" for outgoing messages and exposes perceiver helpers
-	// // (Ctx/Do/Go).
-	// Perception(perceiver Actor) Perception
+	// Reference returns a handle to the actor.
+	Reference() Reference
 
 	// Cancel requests actor shutdown.
 	Cancel()
