@@ -321,7 +321,18 @@ Under the hood (debug builds only), axy tracks the actor loop goroutine and comp
 Example:
 
 ```bash
+# Run an application / example with contract checks enabled:
+go run -tags=debug ./examples/parent_send
+
+# Or run tests with the same checks:
 go test -tags=debug ./...
+```
+
+You can (and usually should) combine this with the race detector:
+
+```bash
+go run -race -tags=debug ./examples/parent_send
+go test -race -tags=debug ./...
 ```
 
 Without `debug`, these assertions are no-ops.
