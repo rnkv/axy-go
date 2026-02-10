@@ -1,4 +1,4 @@
-# Axy
+# Axy (Go)
 
 Axy is a small, pragmatic **actor-style runtime for Go** built around a simple rule:
 
