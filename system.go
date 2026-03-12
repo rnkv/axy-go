@@ -14,9 +14,20 @@ func newSystem() *system {
 
 type System interface {
 	base() *Base
+
+	// Spawn spawns a new actor in the system and returns a reference to it.
 	Spawn(actor Actor) Reference
+
+	// Wait blocks until all actors spawned in the system have destroyed.
 	Wait()
+
+	// Done returns a channel that is closed when the system has shutdown.
 	Done() <-chan struct{}
+
+	// Cancel requests the system to shutdown.
+	//
+	// It is safe to call multiple times.
+	Cancel()
 }
 
 // NewSystem creates an isolated actor system.
@@ -34,7 +45,6 @@ func (s *system) OnCanceled()                             {}
 func (s *system) OnDestroy()                              {}
 func (s *system) OnDestroyed()                            {}
 
-// Spawn spawns a new actor in the system and returns a reference to it.
 func (s *system) Spawn(actor Actor) Reference {
 	spawn(s, nil)
 	<-s.onLive
@@ -50,13 +60,11 @@ func (s *system) Spawn(actor Actor) Reference {
 	return reference
 }
 
-// Wait blocks until all actors spawned in this system have destroyed.
 func (s *system) Wait() {
 	spawn(s, nil)
 	<-s.onDone
 }
 
-// Done returns a channel that is closed when all actors spawned in this system have destroyed.
 func (s *system) Done() <-chan struct{} {
 	spawn(s, nil)
 	return s.onDone
