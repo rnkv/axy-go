@@ -9,7 +9,7 @@ type Reference interface {
 	Key() string
 
 	// Send enqueues a message to the referenced actor.
-	Send(message any, sender Reference) bool
+	Send(message any, sender ...Reference) bool
 
 	// // Perception returns a wrapper that sends messages "as" the given perceiver.
 	// Perception(perceiver Actor) Perception

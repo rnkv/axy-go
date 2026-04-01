@@ -15,8 +15,9 @@ type Actor interface {
 	// Send enqueues a message to this actor.
 	//
 	// The sender is used for tracing/diagnostics and can be used by the receiver
-	// to reply. Returns false if message is nil or the actor is already canceled.
-	Send(message any, sender Reference) bool
+	// to reply. If omitted, the parent actor is used as the sender.
+	// Returns false if message is nil or the actor is already canceled.
+	Send(message any, sender ...Reference) bool
 
 	// Reference returns a handle to the actor.
 	Reference() Reference

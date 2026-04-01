@@ -277,8 +277,9 @@ func (b *Base) Do(callable func()) chan bool {
 // Send enqueues a message to this actor.
 //
 // The sender is used for tracing/diagnostics and can be used by the receiver
-// to reply. Returns false if message is nil or the actor is already canceled.
-func (b *Base) Send(message any, sender Reference) bool {
+// to reply. If omitted, the parent actor is used as the sender.
+// Returns false if message is nil or the actor is already canceled.
+func (b *Base) Send(message any, sender ...Reference) bool {
 	if message == nil {
 		return false
 	}
@@ -290,10 +291,14 @@ func (b *Base) Send(message any, sender Reference) bool {
 		return false
 	}
 
+	if len(sender) == 0 {
+		sender = []Reference{b.parent}
+	}
+
 	select {
 	case <-b.externalCtx.Done():
 		return false
-	case b.queue <- newEnvelope(sender, message):
+	case b.queue <- newEnvelope(sender[0], message):
 		return true
 	}
 }
