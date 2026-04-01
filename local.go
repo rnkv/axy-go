@@ -19,6 +19,10 @@ func (l *Local) local() *Local {
 	return l
 }
 
+func (l *Local) Key() string {
+	return l.key
+}
+
 func (l *Local) PascalCasedKind() string {
 	if l.pascalCasedKind != "" {
 		return l.pascalCasedKind
