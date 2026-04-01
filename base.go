@@ -30,6 +30,7 @@ type Base struct {
 	key                       string
 	parent                    *Base
 	actor                     Actor
+	initializeActorOnce       sync.Once
 	goid                      uint64
 	pascalCasedKind           string
 	snakeCasedKind            string
@@ -68,10 +69,18 @@ func (b *Base) base() *Base {
 	return b
 }
 
+func (b *Base) initializeActor(actor Actor) {
+	b.initializeActorOnce.Do(func() {
+		b.actor = actor
+	})
+}
+
 func (b *Base) PascalCasedKind() string {
 	if b.pascalCasedKind != "" {
 		return b.pascalCasedKind
 	}
+
+	println(reflect.TypeOf(b).String())
 
 	if b.actor == nil {
 		b.pascalCasedKind = "Unknown"

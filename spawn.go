@@ -14,7 +14,7 @@ func spawn(actor Actor, parent *Base) Actor {
 	base := actor.base()
 
 	base.spawnOnce.Do(func() {
-		base.actor = actor
+		base.initializeActor(actor)
 		base.parent = parent
 		base.onLive = make(chan struct{})
 
