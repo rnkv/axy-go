@@ -298,16 +298,19 @@ Some operations are only valid from certain contexts:
   - `Cancel()`
   - `Do(func())` (by design: it hops to the actor loop)
 - **From inside** (the actor goroutine):
+  - `Cancel()`
   - `Send(...)` (actor-to-actor messaging)
   - `Spawn(child)`
   - `Parent()`
+  - `Do(func())` (should be called only from goroutines spawned via `Go(func ())` or `go func()`)
 
 In other words: if you want to send a message “from a goroutine”, don’t — send it **from an actor**, and use `Do()` as the bridge.
 
 Contract note about `Do()`:
 
-- **Do not call `Do()` from the actor goroutine.** `Do()` is an “outside → inside” hop.
+- **Do not call `Do()` from the actor main goroutine.**
 - Calling it from inside can lead to mailbox pressure (it enqueues into the same mailbox you are currently draining), and it’s easy to accidentally deadlock by waiting on the returned channel while the actor loop can’t progress.
+- Call it only from goroutines spawned via `Go(func ())` or `go func()`.
 
 ### Debug build tag: contract checks
 
