@@ -3,8 +3,6 @@ package axy
 import (
 	"reflect"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 )
 
 type Resident struct {
@@ -40,9 +38,7 @@ func (r *Resident) PascalCasedKind() string {
 		t = t.Elem()
 	}
 
-	name := t.Name()
-	firstLetter, size := utf8.DecodeRuneInString(name)
-	r.pascalCasedKind = string(unicode.ToUpper(firstLetter)) + name[size:]
+	r.pascalCasedKind = t.Name()
 	return r.pascalCasedKind
 }
 
