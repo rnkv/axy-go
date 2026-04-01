@@ -9,6 +9,12 @@ type Reference interface {
 	Key() string
 
 	// Send enqueues a message to the referenced actor.
+	//
+	// The sender is used for tracing/diagnostics and can be used by the receiver
+	// to reply.
+	// If the sender is not provided, the parent actor of the referenced actor
+	// is used as the sender.
+	// Returns false if message is nil or the actor is already canceled.
 	Send(message any, sender ...Reference) bool
 
 	// // Perception returns a wrapper that sends messages "as" the given perceiver.

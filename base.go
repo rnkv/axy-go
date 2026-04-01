@@ -277,7 +277,9 @@ func (b *Base) Do(callable func()) chan bool {
 // Send enqueues a message to this actor.
 //
 // The sender is used for tracing/diagnostics and can be used by the receiver
-// to reply. If omitted, the parent actor is used as the sender.
+// to reply.
+// If the sender is not provided, the parent actor of this actor
+// is used as the sender.
 // Returns false if message is nil or the actor is already canceled.
 func (b *Base) Send(message any, sender ...Reference) bool {
 	if message == nil {
