@@ -462,12 +462,12 @@ func (b *Base) Spawn(actor Actor) Reference {
 	return spawn(actor, b)
 }
 
-func (b *Base) Settle(resident Resident, key ...string) {
+func (b *Base) Settle(local Local, key ...string) {
 	if len(key) == 0 {
 		key = []string{b.key}
 	}
 
-	resident.local().parent = b
-	resident.local().resident = resident
-	resident.local().key = key[0]
+	local.resident().parent = b
+	local.resident().local = local
+	local.resident().key = key[0]
 }
