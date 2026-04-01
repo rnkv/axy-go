@@ -80,8 +80,6 @@ func (b *Base) PascalCasedKind() string {
 		return b.pascalCasedKind
 	}
 
-	println(reflect.TypeOf(b).String())
-
 	if b.actor == nil {
 		b.pascalCasedKind = "Unknown"
 		return b.pascalCasedKind
