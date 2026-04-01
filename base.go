@@ -4,7 +4,14 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
+	"strings"
 	"sync"
+)
+
+var (
+	matchFirstUpper = regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllUpper   = regexp.MustCompile("([a-z0-9])([A-Z])")
 )
 
 type childActorDestroyed struct {
@@ -24,6 +31,8 @@ type Base struct {
 	parent                    *Base
 	actor                     Actor
 	goid                      uint64
+	pascalCasedKind           string
+	snakeCasedKind            string
 	spawnOnce                 sync.Once
 	onLive                    chan struct{}
 	queue                     chan any
@@ -59,18 +68,35 @@ func (b *Base) base() *Base {
 	return b
 }
 
-func (b *Base) kind() string {
+func (b *Base) PascalCasedKind() string {
+	if b.pascalCasedKind != "" {
+		return b.pascalCasedKind
+	}
+
 	if b.actor == nil {
-		return "Unknown"
+		b.pascalCasedKind = "Unknown"
+		return b.pascalCasedKind
 	}
 
 	t := reflect.TypeOf(b.actor)
 
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 
-	return t.Name()
+	b.pascalCasedKind = t.Name()
+	return b.pascalCasedKind
+}
+
+func (b *Base) SnakeCasedKind() string {
+	if b.snakeCasedKind != "" {
+		return b.snakeCasedKind
+	}
+
+	snakeCasedKind := matchFirstUpper.ReplaceAllString(b.pascalCasedKind, "${1}_${2}")
+	snakeCasedKind = matchAllUpper.ReplaceAllString(snakeCasedKind, "${1}_${2}")
+	b.snakeCasedKind = strings.ToLower(snakeCasedKind)
+	return b.snakeCasedKind
 }
 
 // SetKey sets a stable identifier for the actor.
@@ -125,22 +151,45 @@ func (b *Base) initializeQueue() {
 	})
 }
 
+func (b *Base) prepareLoggerArguments(args ...any) []any {
+	combinedArgsLength := len(args)
+	if b.key != "" {
+		combinedArgsLength++
+	}
+	combinedArgs := make([]any, 0, combinedArgsLength)
+
+	if b.key != "" {
+		combinedArgs = append(combinedArgs, b.SnakeCasedKind()+"_key", b.key)
+	}
+
+	combinedArgs = append(combinedArgs, args...)
+	return combinedArgs
+}
+
+func (b *Base) Debug(message string, args ...any) {
+	logger.Debug(b.PascalCasedKind()+": "+message, b.prepareLoggerArguments(args...)...)
+}
+
+func (b *Base) Info(message string, args ...any) {
+	logger.Info(b.PascalCasedKind()+": "+message, b.prepareLoggerArguments(args...)...)
+}
+
+func (b *Base) Warn(message string, args ...any) {
+	logger.Warn(b.PascalCasedKind()+": "+message, b.prepareLoggerArguments(args...)...)
+}
+
+func (b *Base) Error(message string, args ...any) {
+	logger.Error(b.PascalCasedKind()+": "+message, b.prepareLoggerArguments(args...)...)
+}
+
 // OnSpawn is a lifecycle hook called at the beginning of the actor goroutine, before the loop starts.
 func (b *Base) OnSpawn() {
-	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()), "key", b.key)
-	} else {
-		logger.Debug(fmt.Sprintf("%s spawning...", b.kind()))
-	}
+	b.Debug("Spawning...")
 }
 
 // OnSpawned is a lifecycle hook called after OnSpawn, still on the actor goroutine.
 func (b *Base) OnSpawned() {
-	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()), "key", b.key)
-	} else {
-		logger.Debug(fmt.Sprintf("%s spawned.", b.kind()))
-	}
+	b.Debug("Spawned.")
 }
 
 func (b *Base) live() {
@@ -240,11 +289,7 @@ func (b *Base) cleanUpQueue() {
 
 // OnMessage is a lifecycle hook called for every delivered message, on the actor goroutine.
 func (b *Base) OnMessage(message any, sender Reference) {
-	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "key", b.key, "message", message)
-	} else {
-		logger.Debug(fmt.Sprintf("%s received message.", b.kind()), "message", message)
-	}
+	b.Debug("Received message.", "message", message)
 }
 
 // Do schedules callable to be executed on the actor goroutine.
@@ -257,7 +302,6 @@ func (b *Base) Do(callable func()) chan bool {
 	b.AssertOutside()
 	b.initializeInternalCtx()
 	b.initializeQueue()
-
 	task := newTask(callable)
 
 	if b.internalCtx.Err() != nil {
@@ -317,7 +361,7 @@ func (b *Base) Parent() Parent {
 	b.AssertInside()
 
 	if b.parent == nil {
-		panic("Actor has no parent.")
+		panic(fmt.Sprintf("%s has no parent.", b.PascalCasedKind()))
 	}
 
 	b.parent.initializeInternalCtx()
@@ -348,20 +392,12 @@ func (b *Base) Cancel() {
 
 // OnCancel is a lifecycle hook called when cancellation is requested.
 func (b *Base) OnCancel() {
-	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()), "key", b.key)
-	} else {
-		logger.Debug(fmt.Sprintf("%s canceling...", b.kind()))
-	}
+	b.Debug("Canceling...")
 }
 
 // OnCanceled is a lifecycle hook called after OnCancel.
 func (b *Base) OnCanceled() {
-	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()), "key", b.key)
-	} else {
-		logger.Debug(fmt.Sprintf("%s canceled.", b.kind()))
-	}
+	b.Debug("Canceled.")
 }
 
 // Go runs callable in a new goroutine that is tracked by the actor.
@@ -388,20 +424,12 @@ func (b *Base) Go(callable func()) {
 
 // OnDestroy is a lifecycle hook called when the actor is about to exit.
 func (b *Base) OnDestroy() {
-	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()), "key", b.key)
-	} else {
-		logger.Debug(fmt.Sprintf("%s destroying...", b.kind()))
-	}
+	b.Debug("Destroying...")
 }
 
 // OnDestroyed is a lifecycle hook called after OnDestroy.
 func (b *Base) OnDestroyed() {
-	if b.key != "" {
-		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()), "key", b.key)
-	} else {
-		logger.Debug(fmt.Sprintf("%s destroyed.", b.kind()))
-	}
+	b.Debug("Destroyed.")
 }
 
 // Spawn starts a child actor in the same system and returns its [Reference].
@@ -410,16 +438,16 @@ func (b *Base) OnDestroyed() {
 // The returned actor is automatically canceled if the parent actor is canceled.
 func (b *Base) Spawn(actor Actor) Reference {
 	if b.actor == nil {
-		panic("Actor is not spawned, cannot spawn child actor.")
+		panic(fmt.Sprintf("%s is not spawned, cannot spawn child actor.", b.PascalCasedKind()))
 	}
 
 	b.AssertInside()
 
 	if b.isCanceled {
 		if b.key != "" {
-			panic(fmt.Sprintf("%s (%s) is canceled, cannot spawn child actor.", b.kind(), b.key))
+			panic(fmt.Sprintf("%s (%s) is canceled, cannot spawn child actor.", b.PascalCasedKind(), b.key))
 		} else {
-			panic(fmt.Sprintf("%s is canceled, cannot spawn child actor.", b.kind()))
+			panic(fmt.Sprintf("%s is canceled, cannot spawn child actor.", b.PascalCasedKind()))
 		}
 	}
 
