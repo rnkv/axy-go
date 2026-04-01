@@ -108,6 +108,7 @@ func (b *Base) SnakeCasedKind() string {
 
 // SetKey sets a stable identifier for the actor.
 //
+// Deprecated: Use [Initialize] instead with an optional key argument.
 // SetKey must be called before spawning (typically in your constructor).
 // Calling SetKey more than once panics.
 func (b *Base) SetKey(key string) {
