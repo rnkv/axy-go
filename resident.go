@@ -87,3 +87,19 @@ func (r *Resident) Warn(message string, args ...any) {
 func (r *Resident) Error(message string, args ...any) {
 	r.parent.Error(r.PascalCasedKind()+": "+message, r.prepareLoggerArguments(args...)...)
 }
+
+func (r *Resident) Send(message any, sender ...Reference) bool {
+	if r.Reference == nil {
+		return false
+	}
+
+	return r.Reference.Send(message, sender...)
+}
+
+func (r *Resident) Cancel() {
+	if r.Reference == nil {
+		return
+	}
+
+	r.Reference.Cancel()
+}
